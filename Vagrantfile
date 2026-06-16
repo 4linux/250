@@ -5,7 +5,7 @@
 # "LLMs Open Source: Do Zero ao Seu Primeiro Modelo Corporativo" (4Linux)
 #
 # Box:      bento/debian-12 (Debian 12 Bookworm — estável com Guest Additions)
-# Serviços: Ollama :11434 | JupyterLab :8888 | Docker Engine + Compose v2
+# Serviços: Ollama :11434 | JupyterLab :8888 | Open WebUI :3000 | Docker Engine + Compose v2
 #
 # Uso rápido:
 #   vagrant up        — inicia e provisiona a VM (primeira vez: ~15-20 min)

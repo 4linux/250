@@ -42,6 +42,7 @@ bash /home/vagrant/labs/validate_env.sh   # verifica o ambiente
 | JupyterLab | http://localhost:8888 | — | `llmlab` |
 | Ollama API | http://localhost:11434 | — | — |
 | Ollama (Docker, Lab 05) | http://localhost:11435 | — | — |
+| Open WebUI (Lab 03) | http://localhost:3000 | — | — |
 
 ---
 
