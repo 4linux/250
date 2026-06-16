@@ -1,0 +1,30 @@
+# Lab 05 — Stack Docker para Arquitetura Corporativa com LLMs
+# Módulo 5: Arquitetura Corporativa: Como LLMs Entram em Produção
+#
+# Uso (dentro da VM, após vagrant ssh):
+#   cd /home/vagrant/labs/lab_05_stack
+#   docker compose up -d
+#   docker compose ps
+#   docker exec ollama-lab05 ollama pull phi3:mini
+#   docker compose down
+#
+# ATENÇÃO: o Ollama do serviço systemd usa a porta 11434.
+# Este compose usa 11435 para evitar conflito — ambos podem rodar juntos.
+# Acesso à API do container: http://localhost:11435/api/tags
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    mem_limit: 16g 
+    container_name: ollama-lab05
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+
+volumes:
+  ollama_data:
+    driver: local
