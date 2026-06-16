@@ -1,0 +1,76 @@
+---
+- name: Remover versões antigas do Docker (se existirem)
+  apt:
+    name:
+      - docker
+      - docker-engine
+      - docker.io
+      - containerd
+      - runc
+    state: absent
+  ignore_errors: true
+
+- name: Criar diretório /etc/apt/keyrings
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Baixar chave GPG oficial do Docker
+  get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+    force: false
+
+- name: Adicionar repositório oficial do Docker para Debian
+  apt_repository:
+    repo: >-
+      deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/debian
+      {{ ansible_distribution_release }} stable
+    state: present
+    filename: docker
+    update_cache: true
+
+- name: Instalar Docker Engine, CLI e plugins
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Adicionar usuário {{ lab_user }} ao grupo docker
+  user:
+    name: "{{ lab_user }}"
+    groups: docker
+    append: true
+
+- name: Habilitar e iniciar o serviço Docker
+  systemd:
+    name: docker
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Verificar instalação do Docker
+  command: docker --version
+  register: docker_version
+  changed_when: false
+
+- name: Exibir versão instalada do Docker
+  debug:
+    msg: "{{ docker_version.stdout }}"
+
+- name: Verificar Docker Compose v2
+  command: docker compose version
+  register: compose_version
+  changed_when: false
+
+- name: Exibir versão do Docker Compose
+  debug:
+    msg: "{{ compose_version.stdout }}"

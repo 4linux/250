@@ -1,0 +1,41 @@
+---
+- name: Atualizar cache do apt
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Instalar pacotes base
+  apt:
+    name:
+      - curl
+      - wget
+      - git
+      - vim
+      - htop
+      - jq
+      - ca-certificates
+      - gnupg
+      - lsb-release
+      - apt-transport-https
+      - software-properties-common
+      - python3
+      - python3-pip
+      - python3-venv
+      - build-essential
+      - unzip
+      - bash-completion
+    state: present
+
+- name: Criar diretório .jupyter para o usuário {{ lab_user }}
+  file:
+    path: "/home/{{ lab_user }}/.jupyter"
+    state: directory
+    owner: "{{ lab_user }}"
+    group: "{{ lab_user }}"
+    mode: "0700"
+
+- name: Adicionar vagrant ao grupo sudo (já padrão, mas garantir)
+  user:
+    name: "{{ lab_user }}"
+    groups: sudo
+    append: true

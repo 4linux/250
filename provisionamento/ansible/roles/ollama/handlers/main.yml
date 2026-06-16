@@ -1,0 +1,6 @@
+---
+- name: Reload e restart Ollama
+  systemd:
+    name: ollama
+    state: restarted
+    daemon_reload: true

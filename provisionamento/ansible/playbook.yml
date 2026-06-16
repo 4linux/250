@@ -1,0 +1,27 @@
+---
+# LLM Lab — Playbook de provisionamento
+# Curso: LLMs Open Source: Do Zero ao Seu Primeiro Modelo Corporativo (4Linux)
+#
+# Roles executadas em ordem:
+#   1. common     — atualização do sistema e pacotes base
+#   2. docker     — Docker Engine + Compose v2 (repositório oficial)
+#   3. ollama     — servidor de inferência local (systemd, porta 11434)
+#   4. jupyterlab — servidor de notebooks (systemd, porta 8888)
+
+- name: "LLM Lab — Provisionamento Completo"
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    lab_user:             "vagrant"
+    jupyterlab_port:      8888
+    jupyterlab_password:  "llmlab"
+    ollama_host:          "0.0.0.0"
+    phi_model:            "phi3:mini"
+
+  roles:
+    - common
+    - docker
+    - ollama
+    - jupyterlab

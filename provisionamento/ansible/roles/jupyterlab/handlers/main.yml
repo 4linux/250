@@ -1,0 +1,6 @@
+---
+- name: Reload e restart JupyterLab
+  systemd:
+    name: jupyterlab
+    state: restarted
+    daemon_reload: true

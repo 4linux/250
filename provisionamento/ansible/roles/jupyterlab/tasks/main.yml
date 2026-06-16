@@ -1,0 +1,107 @@
+---
+# Usamos um virtualenv para isolar o JupyterLab e evitar conflitos com o
+# python3-packaging do Debian 12 (versão patched que não tem InvalidName).
+# O venv fica em /home/vagrant/venv e é ativado automaticamente no .bashrc.
+
+- name: Criar virtual environment Python em /home/vagrant/venv
+  command: python3 -m venv /home/vagrant/venv
+  args:
+    creates: /home/vagrant/venv/bin/activate
+  become_user: "{{ lab_user }}"
+
+- name: Atualizar pip dentro do venv
+  command: /home/vagrant/venv/bin/pip install --upgrade pip
+  become_user: "{{ lab_user }}"
+  changed_when: false
+
+- name: Instalar JupyterLab e bibliotecas Python no venv
+  pip:
+    name:
+      - "jupyterlab>=4.0"
+      - notebook
+      - requests
+      - httpx
+      - pandas
+      - "matplotlib>=3.7"
+      - ipykernel
+    state: present
+    virtualenv: /home/vagrant/venv
+  become_user: "{{ lab_user }}"
+
+- name: Ativar venv automaticamente no .bashrc (sessões interativas)
+  lineinfile:
+    path: "/home/{{ lab_user }}/.bashrc"
+    line: "source /home/{{ lab_user }}/venv/bin/activate"
+    state: present
+  become_user: "{{ lab_user }}"
+
+- name: Gerar hash da senha do JupyterLab usando o Python do venv
+  command: >-
+    /home/{{ lab_user }}/venv/bin/python3 -c
+    "from jupyter_server.auth import passwd; print(passwd('{{ jupyterlab_password }}'))"
+  register: jp_password_hash
+  changed_when: false
+  become_user: "{{ lab_user }}"
+
+- name: Criar configuração do JupyterLab
+  copy:
+    dest: "/home/{{ lab_user }}/.jupyter/jupyter_server_config.py"
+    content: |
+      c.ServerApp.ip               = '0.0.0.0'
+      c.ServerApp.port             = {{ jupyterlab_port }}
+      c.ServerApp.open_browser     = False
+      c.ServerApp.password         = '{{ jp_password_hash.stdout }}'
+      c.ServerApp.root_dir         = '/home/{{ lab_user }}/labs'
+      c.ServerApp.allow_remote_access = True
+      c.IdentityProvider.token     = ''
+    owner: "{{ lab_user }}"
+    group: "{{ lab_user }}"
+    mode: "0600"
+  notify: Reload e restart JupyterLab
+
+- name: Criar serviço systemd para JupyterLab (usa o jupyter do venv)
+  copy:
+    dest: /etc/systemd/system/jupyterlab.service
+    content: |
+      [Unit]
+      Description=JupyterLab — LLM Lab (4Linux)
+      After=network.target
+
+      [Service]
+      Type=simple
+      User={{ lab_user }}
+      Group={{ lab_user }}
+      WorkingDirectory=/home/{{ lab_user }}/labs
+      ExecStart=/home/{{ lab_user }}/venv/bin/jupyter lab \
+        --config=/home/{{ lab_user }}/.jupyter/jupyter_server_config.py
+      Restart=on-failure
+      RestartSec=10
+      Environment="HOME=/home/{{ lab_user }}"
+      Environment="PATH=/home/{{ lab_user }}/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      Environment="VIRTUAL_ENV=/home/{{ lab_user }}/venv"
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  notify: Reload e restart JupyterLab
+
+- name: Habilitar e iniciar JupyterLab
+  systemd:
+    name: jupyterlab
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: "Aguardar JupyterLab responder em :{{ jupyterlab_port }}"
+  uri:
+    url: "http://localhost:{{ jupyterlab_port }}/api"
+    method: GET
+    status_code: [200, 401]
+  register: jupyter_ready
+  retries: 24
+  delay: 5
+  until: jupyter_ready.status in [200, 401]
+
+- name: Confirmar JupyterLab ativo
+  debug:
+    msg: "JupyterLab disponível em http://localhost:{{ jupyterlab_port }} (senha: {{ jupyterlab_password }})"

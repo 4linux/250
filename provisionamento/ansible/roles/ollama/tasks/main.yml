@@ -1,0 +1,72 @@
+---
+- name: Verificar se o Ollama já está instalado
+  stat:
+    path: /usr/local/bin/ollama
+  register: ollama_binary
+
+- name: Instalar Ollama via script oficial (ollama.com/install.sh)
+  shell: curl -fsSL https://ollama.com/install.sh | sh
+  when: not ollama_binary.stat.exists
+  args:
+    creates: /usr/local/bin/ollama
+
+- name: Criar diretório de override do systemd para Ollama
+  file:
+    path: /etc/systemd/system/ollama.service.d
+    state: directory
+    mode: "0755"
+
+# Configura OLLAMA_HOST=0.0.0.0 para aceitar conexões via port forwarding do Vagrant.
+# Por padrão Ollama escuta apenas em 127.0.0.1, o que pode impedir acesso externo.
+- name: Configurar Ollama para escutar em 0.0.0.0 (port forwarding Vagrant)
+  copy:
+    dest: /etc/systemd/system/ollama.service.d/override.conf
+    content: |
+      [Service]
+      Environment="OLLAMA_HOST=0.0.0.0"
+    mode: "0644"
+  notify: Reload e restart Ollama
+
+# Aplica o handler imediatamente para garantir que Ollama sobe em 0.0.0.0
+# antes que o próximo task tente usar a API.
+- name: Aplicar handlers pendentes (restart Ollama com novo OLLAMA_HOST)
+  meta: flush_handlers
+
+- name: Habilitar Ollama no systemd
+  systemd:
+    name: ollama
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: "Aguardar Ollama responder na API (timeout: 60s)"
+  uri:
+    url: "http://localhost:11434/api/tags"
+    method: GET
+    status_code: 200
+  register: ollama_ready
+  retries: 12
+  delay: 5
+  until: ollama_ready.status == 200
+
+- name: "Baixar modelo {{ phi_model }} (~2.3 GB — pode demorar alguns minutos)"
+  command: ollama pull {{ phi_model }}
+  become_user: "{{ lab_user }}"
+  environment:
+    HOME: "/home/{{ lab_user }}"
+    OLLAMA_HOST: "http://localhost:11434"
+  register: phi_pull
+  changed_when: true
+  timeout: 1800
+
+- name: Confirmar modelos disponíveis no Ollama
+  command: ollama list
+  become_user: "{{ lab_user }}"
+  environment:
+    HOME: "/home/{{ lab_user }}"
+  register: ollama_models
+  changed_when: false
+
+- name: Exibir modelos instalados
+  debug:
+    msg: "{{ ollama_models.stdout_lines }}"
